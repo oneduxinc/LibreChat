@@ -59,7 +59,7 @@ describe('resolveBoundProviderSession', () => {
   });
 
   it('throws OPENID_SESSION_ENDED on a conflict outside mode off', () => {
-    expect(() => resolveBoundProviderSession('record', refA, refB)).toThrow(
+    expect(() => resolveBoundProviderSession('enforce', refA, refB)).toThrow(
       expect.objectContaining({ code: OPENID_SESSION_ENDED }),
     );
   });
@@ -99,7 +99,7 @@ describe('resolveBoundProviderSessionForToken', () => {
 
   it('prefers the marker on the given token over the session ref', () => {
     const result = resolveBoundProviderSessionForToken(
-      'record',
+      'enforce',
       markerCookie(refA),
       SECRET,
       refreshToken,
@@ -109,13 +109,19 @@ describe('resolveBoundProviderSessionForToken', () => {
   });
 
   it('falls back to the session ref when the token carries no marker', () => {
-    const result = resolveBoundProviderSessionForToken('record', {}, SECRET, refreshToken, refB);
+    const result = resolveBoundProviderSessionForToken('enforce', {}, SECRET, refreshToken, refB);
     expect(result).toEqual(refB);
   });
 
   it('throws OPENID_SESSION_ENDED when the marker conflicts with the session ref', () => {
     expect(() =>
-      resolveBoundProviderSessionForToken('record', markerCookie(refA), SECRET, refreshToken, refB),
+      resolveBoundProviderSessionForToken(
+        'enforce',
+        markerCookie(refA),
+        SECRET,
+        refreshToken,
+        refB,
+      ),
     ).toThrow(expect.objectContaining({ code: OPENID_SESSION_ENDED }));
   });
 });
@@ -129,7 +135,7 @@ describe('authorizeCachedReuseSession', () => {
         establish: jest.fn(),
         authorize: jest.fn().mockResolvedValue({ ok: true }),
         preCheck: jest.fn(),
-        getMode: jest.fn().mockResolvedValue('record'),
+        getMode: jest.fn().mockResolvedValue('enforce'),
       },
       deleteOpenIDSession: jest.fn().mockResolvedValue(undefined),
       logger: { warn: jest.fn() },
@@ -333,17 +339,17 @@ describe('resolveOpenIDRefreshProviderSession', () => {
 
   it('resolves the mode and skips the credential binding when there is no reusable session token', async () => {
     const dbAuthorize = jest.fn().mockResolvedValue({ ok: true });
-    const deps = makeDeps('record', dbAuthorize);
+    const deps = makeDeps('enforce', dbAuthorize);
 
     const context = await resolveOpenIDRefreshProviderSession(deps, refreshToken, false);
 
-    expect(context.mode).toBe('record');
+    expect(context.mode).toBe('enforce');
     expect(context.reuseCredential).toBeNull();
   });
 
   it('binds the reuse credential to the given refresh token when a session token is reusable', async () => {
     const dbAuthorize = jest.fn().mockResolvedValue({ ok: true });
-    const deps = makeDeps('record', dbAuthorize);
+    const deps = makeDeps('enforce', dbAuthorize);
 
     const context = await resolveOpenIDRefreshProviderSession(deps, refreshToken, true);
 
@@ -380,5 +386,36 @@ describe('resolveOpenIDRefreshProviderSession', () => {
     await expect(authorizeReuse(refA)).resolves.toBeUndefined();
     expect(dbAuthorize).toHaveBeenCalled();
     expect(deps.deleteOpenIDSession).not.toHaveBeenCalled();
+  });
+
+  it('enforce mode: denies when the provider session is missing (MISSING)', async () => {
+    const dbAuthorize = jest.fn().mockResolvedValue({ ok: false, code: 'MISSING' });
+    const deps = makeDeps('enforce', dbAuthorize);
+    const { authorizeReuse } = await resolveOpenIDRefreshProviderSession(deps, refreshToken, true);
+
+    const error: unknown = await authorizeReuse(refA).catch((caught: unknown) => caught);
+    expect(isOpenIDSessionEndedError(error)).toBe(true);
+    expect(deps.deleteOpenIDSession).toHaveBeenCalledWith(refreshToken);
+  });
+
+  it('enforce mode: a database failure rejects with ProviderSessionUnavailableError (503) without cleanup', async () => {
+    const dbAuthorize = jest.fn().mockRejectedValue(new Error('db down'));
+    const deps = makeDeps('enforce', dbAuthorize);
+    const { authorizeReuse } = await resolveOpenIDRefreshProviderSession(deps, refreshToken, true);
+
+    const error: unknown = await authorizeReuse(refA).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ProviderSessionUnavailableError);
+    expect(deps.deleteOpenIDSession).not.toHaveBeenCalled();
+  });
+
+  it('enforce mode: authorizes the bound provider session and resolves on success', async () => {
+    const dbAuthorize = jest.fn().mockResolvedValue({ ok: true });
+    const deps = makeDeps('enforce', dbAuthorize);
+    const { authorizeReuse } = await resolveOpenIDRefreshProviderSession(deps, refreshToken, true);
+
+    await expect(authorizeReuse(refA)).resolves.toBeUndefined();
+    expect(dbAuthorize).toHaveBeenCalledWith(
+      expect.objectContaining({ issuer: refA.issuer, clientId: refA.clientId, sid: refA.sid }),
+    );
   });
 });
