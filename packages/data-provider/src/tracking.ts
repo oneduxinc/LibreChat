@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { TProductTrackingConfig, TTelemetryConfig } from './config';
+import { sharingBrowserFacts, sharingServerFacts } from './tracking/sharing';
 import { promptBrowserFacts, promptServerFacts } from './tracking/prompts';
 import { skillBrowserFacts, skillServerFacts } from './tracking/skills';
 import { chatBrowserFacts, chatServerFacts } from './tracking/chat';
@@ -32,6 +33,7 @@ export const browserProductFactSchema = z.discriminatedUnion('name', [
   ...chatBrowserFacts,
   ...promptBrowserFacts,
   ...skillBrowserFacts,
+  ...sharingBrowserFacts,
   z.strictObject({
     name: z.literal('librechat.session.activity'),
     feature: z.literal('session'),
@@ -53,6 +55,7 @@ export const serverProductFactSchema = z.discriminatedUnion('name', [
   ...agentServerFacts,
   ...promptServerFacts,
   ...skillServerFacts,
+  ...sharingServerFacts,
   z.strictObject({
     name: z.literal('librechat.langfuse.connection.changed'),
     enabled: z.boolean(),
