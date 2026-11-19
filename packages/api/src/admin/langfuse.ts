@@ -908,6 +908,7 @@ export function createAdminLangfuseHandlers(deps: AdminLangfuseDeps): {
         listPrompts: (query) => listLangfusePrompts(connection, query, { timeoutMs }),
         lockLeaseMs: getLangfusePromptSyncLockLeaseMs(req.config),
         maxPages: getLangfusePromptSyncMaxPages(req.config),
+        trackProductFact: (fact) => trackRequestProductFact(req, fact),
       });
 
       if (!result.ok) {
