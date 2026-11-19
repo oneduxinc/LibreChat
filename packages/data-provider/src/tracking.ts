@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { TProductTrackingConfig, TTelemetryConfig } from './config';
 import { chatBrowserFacts, chatServerFacts } from './tracking/chat';
+import { agentServerFacts } from './tracking/agents';
 
 export { productBuiltinToolNameSchema } from './tracking/privacy';
 export type { ProductBuiltinToolName } from './tracking/privacy';
@@ -43,6 +44,7 @@ export const browserProductFactSchema = z.discriminatedUnion('name', [
 /** Server facts follow confirmed settings writes. */
 export const serverProductFactSchema = z.discriminatedUnion('name', [
   ...chatServerFacts,
+  ...agentServerFacts,
   z.strictObject({
     name: z.literal('librechat.langfuse.connection.changed'),
     enabled: z.boolean(),
