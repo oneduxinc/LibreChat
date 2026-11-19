@@ -158,6 +158,7 @@ import { BACKGROUND_TOOL_INVOCATION_CONFIG_KEY } from './invocation';
 import { mergeCodeFilesIntoContext } from './codeFilesSession';
 import { toolValidationFeedback } from './validationFeedback';
 import { explainWorkspacePathRejection } from '~/code/paths';
+import { trackRequestProductFact } from '~/tracking/request';
 import { createSkillContentDigest } from './compatibility';
 import { isMissingSandboxPathError } from '~/files/code';
 import { applyHostTextEdits } from './files/processing';
@@ -3670,6 +3671,12 @@ async function writeSkillMd({
       }
       throw error;
     }
+    trackRequestProductFact(req, {
+      name: 'librechat.skills.added',
+      feature: 'skills',
+      skillId: result.skill._id.toString(),
+      source: 'inline',
+    });
     rememberAuthoredSkill([mergedConfigurable, sourceConfigurable], result.skill);
     options.onSkillAuthored?.({
       name: result.skill.name,
@@ -3740,6 +3747,12 @@ async function writeSkillMd({
     return errorResult(tc, `Skill "${skillName}" not found or not accessible.`);
   }
 
+  if (req)
+    trackRequestProductFact(req, {
+      name: 'librechat.skills.updated',
+      feature: 'skills',
+      skillId: result.skill._id.toString(),
+    });
   const summary = `Updated ${SKILL_FILE_PREFIX}${skillName}/${SKILL_MD} (${content.length} chars).`;
   const surfacedWarnings = surfaceSkillAuthoringWarnings(result.warnings);
   const summaryWithWarnings = `${summary}${surfacedWarnings?.contentSuffix ?? ''}`;
