@@ -2,6 +2,9 @@ import { z } from 'zod';
 import type { TProductTrackingConfig, TTelemetryConfig } from './config';
 import { chatBrowserFacts, chatServerFacts } from './tracking/chat';
 
+export { productBuiltinToolNameSchema } from './tracking/privacy';
+export type { ProductBuiltinToolName } from './tracking/privacy';
+
 export type { ChatSubmissionKind, ChatBrowserFact, ChatServerFact } from './tracking/chat';
 
 /** Product events are off unless the deployment explicitly enables them. */
