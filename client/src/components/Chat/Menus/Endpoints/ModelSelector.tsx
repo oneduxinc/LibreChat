@@ -4,6 +4,7 @@ import type { ModelSelectorProps } from '~/common';
 import {
   renderModelSpecs,
   renderEndpoints,
+  renderEndpointModels,
   renderSearchResults,
   renderCustomGroups,
 } from './components';
@@ -25,8 +26,16 @@ function activateSelectorCatalogs(open: boolean) {
 }
 
 /** onedux patch: `composer` is the compact, borderless trigger used under the composer
- *  (ComposerModelRow); `header` is the stock look. */
-export function ModelSelectorContent({ variant = 'header' }: { variant?: 'header' | 'composer' }) {
+ *  (ComposerModelRow); `header` is the stock look. `preview` makes the trigger show that model
+ *  instead of the current selection (Auto shows the model Manual would use); the menu's
+ *  check marks still follow the real selection. */
+export function ModelSelectorContent({
+  variant = 'header',
+  preview = null,
+}: {
+  variant?: 'header' | 'composer';
+  preview?: { endpoint: string; model: string } | null;
+}) {
   const localize = useLocalize();
   const modelSelectorHint = useShortcutHint('openModelSelector', localize('com_ui_select_model'));
   const modelSelectorAriaKey = useShortcutAriaKey('openModelSelector');
@@ -50,16 +59,32 @@ export function ModelSelectorContent({ variant = 'header' }: { variant?: 'header
     keyDialogEndpoint,
   } = useModelSelectorContext();
 
+  const shownValues = useMemo(
+    () =>
+      preview != null
+        ? { endpoint: preview.endpoint, model: preview.model, modelSpec: '' }
+        : selectedValues,
+    [preview, selectedValues],
+  );
+  /** onedux patch: with a single endpoint its models sit beside the specs, one level up,
+   *  instead of behind an "onedux >" submenu. */
+  const flatEndpoint = useMemo(() => {
+    const endpoints = mappedEndpoints ?? [];
+    return endpoints.length === 1 && endpoints[0].hasModels && (endpoints[0].models?.length ?? 0) > 0
+      ? endpoints[0]
+      : null;
+  }, [mappedEndpoints]);
+
   const selectedIcon = useMemo(
     () =>
       getSelectedIcon({
         mappedEndpoints: mappedEndpoints ?? [],
-        selectedValues,
+        selectedValues: shownValues,
         modelSpecs,
         endpointsConfig,
         agentsMap,
       }),
-    [mappedEndpoints, selectedValues, modelSpecs, endpointsConfig, agentsMap],
+    [mappedEndpoints, shownValues, modelSpecs, endpointsConfig, agentsMap],
   );
   const selectedDisplayValue = useMemo(
     () =>
@@ -67,10 +92,10 @@ export function ModelSelectorContent({ variant = 'header' }: { variant?: 'header
         localize,
         agentsMap,
         modelSpecs,
-        selectedValues,
+        selectedValues: shownValues,
         mappedEndpoints,
       }),
-    [localize, agentsMap, modelSpecs, selectedValues, mappedEndpoints],
+    [localize, agentsMap, modelSpecs, shownValues, mappedEndpoints],
   );
 
   const trigger = (
@@ -132,7 +157,9 @@ export function ModelSelectorContent({ variant = 'header' }: { variant?: 'header
               selectedValues.modelSpec || '',
             )}
             {/* Render endpoints (will include grouped specs matching endpoint names) */}
-            {renderEndpoints(mappedEndpoints ?? [])}
+            {flatEndpoint != null
+              ? renderEndpointModels(flatEndpoint, flatEndpoint.models ?? [], undefined, 0)
+              : renderEndpoints(mappedEndpoints ?? [])}
             {/* Render custom groups (specs with group field not matching any endpoint) */}
             {renderCustomGroups(modelSpecs || [], mappedEndpoints ?? [])}
           </>

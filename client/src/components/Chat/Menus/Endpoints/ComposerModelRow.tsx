@@ -10,12 +10,13 @@ import { isModelSelectorShown } from './shown';
  * Auto / Manual switch beside it.
  *
  * - Auto   = the model spec marked `default: true` in librechat.yaml (for onedux: the LiteLLM
- *            auto router). The picker chip is hidden; only the switch shows "Auto".
- * - Manual = any concrete model. The chip shows it and opens the usual selector menu.
+ *            auto router). The chip still shows the model Manual would use, greyed as a preview.
+ * - Manual = any concrete model. The chip shows it.
  *
- * Clicking the switch in Auto picks the last manually chosen model (remembered in
- * localStorage), else the first model of the auto spec's endpoint. Clicking it in Manual
- * selects the auto spec again. Picking the auto spec from the menu also counts as Auto.
+ * The Manual model is the last one picked by hand (remembered in localStorage), else the first
+ * model of the auto spec's endpoint. Clicking the switch in Auto selects it; in Manual it selects
+ * the auto spec again. Picking a model from the chip's menu goes Manual, picking the auto spec
+ * goes Auto.
  * Without a default spec there is no switch, just the picker.
  *
  * Copy is English only: the site ships English only.
@@ -57,13 +58,11 @@ function ComposerModelRowContent() {
     }
   }, [selectedValues]);
 
-  const toggle = useCallback(() => {
+  /** The model Manual would use; recomputed when the selection changes so a fresh hand pick
+   *  (already written to storage by the effect above) is what Auto previews next. */
+  const manualTarget = useMemo(() => {
     if (autoSpec == null) {
-      return;
-    }
-    if (!isAuto) {
-      handleSelectSpec(autoSpec);
-      return;
+      return null;
     }
     const endpoints = mappedEndpoints ?? [];
     const last = readLastManual();
@@ -71,7 +70,7 @@ function ComposerModelRowContent() {
       endpoints.find((item) => item.value === last?.endpoint) ??
       endpoints.find((item) => item.value === (autoSpec.preset.endpoint ?? ''));
     if (endpoint == null) {
-      return;
+      return null;
     }
     /* The auto router is itself a model on the endpoint; Manual means something else. */
     const names = (endpoint.models ?? [])
@@ -81,17 +80,36 @@ function ComposerModelRowContent() {
       last != null && last.endpoint === endpoint.value && names.includes(last.model)
         ? last.model
         : names[0];
-    if (model) {
-      handleSelectModel(endpoint, model);
+    return model ? { endpoint, model } : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSpec, mappedEndpoints, selectedValues]);
+
+  const toggle = useCallback(() => {
+    if (autoSpec == null) {
+      return;
     }
-  }, [autoSpec, isAuto, mappedEndpoints, handleSelectSpec, handleSelectModel]);
+    if (!isAuto) {
+      handleSelectSpec(autoSpec);
+      return;
+    }
+    if (manualTarget != null) {
+      handleSelectModel(manualTarget.endpoint, manualTarget.model);
+    }
+  }, [autoSpec, isAuto, manualTarget, handleSelectSpec, handleSelectModel]);
+
+  const preview =
+    isAuto && manualTarget != null
+      ? { endpoint: manualTarget.endpoint.value, model: manualTarget.model }
+      : null;
 
   return (
     <div
       data-testid="composer-model-row"
       className="flex min-w-0 items-center justify-end gap-1 px-2 pt-1.5"
     >
-      {(autoSpec == null || !isAuto) && <ModelSelectorContent variant="composer" />}
+      <div className={isAuto ? 'min-w-0 opacity-60 hover:opacity-100' : 'min-w-0'}>
+        <ModelSelectorContent variant="composer" preview={preview} />
+      </div>
       {autoSpec != null && (
         <button
           type="button"
