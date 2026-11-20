@@ -78,6 +78,7 @@ import ProjectLandingChip from '../ProjectLandingChip';
 import useHasAccess from '~/hooks/Roles/useHasAccess';
 import useDictation from '~/hooks/Input/useDictation';
 import { useGetStartupConfig } from '~/data-provider';
+import ComposerModelRow from '~/components/Chat/Menus/Endpoints/ComposerModelRow';
 import { lazyWithRecovery } from '~/lib/assets/lazy';
 import TextareaHeader from './TextareaHeader';
 import AutoPlayAudio from './AutoPlayAudio';
@@ -755,6 +756,7 @@ const ChatForm = memo(function ChatForm({
         </>
       }
       hints={
+        <>
         <Hints
           index={index}
           enterToSend={enterToSend}
@@ -770,6 +772,10 @@ const ChatForm = memo(function ChatForm({
           uploadingCount={uploadingCount}
           idleActions={idleActions}
         />
+        {/* onedux patch: model picker + Auto/Manual under the composer (primary composer only,
+            the selector's chat context is bound to conversation index 0). */}
+        {index === 0 && <ComposerModelRow startupConfig={startupConfig} />}
+        </>
       }
     >
       <TextareaHeader addedConvo={addedConvo} setAddedConvo={setAddedConvo} />

@@ -1,0 +1,60 @@
+name: onedux image
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag, e.g. v0.8.9-onedux.1"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.3"
+          cache: npm
+
+      - name: npm ci
+        run: npm ci --no-audit
+
+      - name: Build packages and client
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: npm run frontend
+
+      - name: Typecheck client (informational)
+        continue-on-error: true
+        run: cd client && npm run typecheck
+
+      - name: Check the patch made it into the bundle
+        run: grep -rl 'composer-model-row' client/dist/assets | head -1 | grep -q .
+
+      - name: Assemble a context with only the built client
+        run: |
+          mkdir -p ctx
+          cp -r client/dist ctx/dist
+          cp onedux/Dockerfile ctx/Dockerfile
+          du -sh ctx/dist
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ctx
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: ghcr.io/oneduxinc/librechat:${{ inputs.tag }}

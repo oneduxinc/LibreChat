@@ -24,7 +24,9 @@ function activateSelectorCatalogs(open: boolean) {
   activateCatalog('assistants');
 }
 
-function ModelSelectorContent() {
+/** onedux patch: `composer` is the compact, borderless trigger used under the composer
+ *  (ComposerModelRow); `header` is the stock look. */
+export function ModelSelectorContent({ variant = 'header' }: { variant?: 'header' | 'composer' }) {
   const localize = useLocalize();
   const modelSelectorHint = useShortcutHint('openModelSelector', localize('com_ui_select_model'));
   const modelSelectorAriaKey = useShortcutAriaKey('openModelSelector');
@@ -79,7 +81,11 @@ function ModelSelectorContent() {
         <button
           data-testid="model-selector-button"
           aria-keyshortcuts={modelSelectorAriaKey}
-          className="border-border-light bg-presentation text-text-primary hover:bg-surface-active-alt rounded-theme-control flex h-9 max-w-full items-center gap-2 border px-3 py-2 text-sm"
+          className={
+            variant === 'composer'
+              ? 'text-text-secondary hover:text-text-primary hover:bg-surface-hover flex h-8 max-w-full items-center gap-1.5 rounded-lg px-2 text-sm'
+              : 'border-border-light bg-presentation text-text-primary hover:bg-surface-active-alt rounded-theme-control flex h-9 max-w-full items-center gap-2 border px-3 py-2 text-sm'
+          }
           aria-label={localize('com_ui_select_model')}
         >
           {selectedIcon && React.isValidElement(selectedIcon) && (
@@ -94,7 +100,13 @@ function ModelSelectorContent() {
   );
 
   return (
-    <div className="relative flex max-w-[60vw] min-w-0 flex-col items-center gap-2 sm:max-w-xs">
+    <div
+      className={
+        variant === 'composer'
+          ? 'relative flex max-w-[60vw] min-w-0 items-center sm:max-w-xs'
+          : 'relative flex max-w-[60vw] min-w-0 flex-col items-center gap-2 sm:max-w-xs'
+      }
+    >
       <Menu
         onOpenChange={activateSelectorCatalogs}
         values={selectedValues}
